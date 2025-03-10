@@ -59,9 +59,10 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
     if st.button("Send") and user_input:
         with st.spinner("Thinking..."):
             response = chat_model.invoke(user_input)  # Directly call the model
+            response_text = response.content  # Extract just the text response
             st.session_state.chat_history.append(("You", user_input))
-            st.session_state.chat_history.append(("Bot", response))
-            st.write(f"**Bot:** {response}")
+            st.session_state.chat_history.append(("Bot", response_text))
+            st.write(f"**Bot:** {response_text}")
 
     # Display Chat History
     st.subheader("📜 Chat History")
@@ -69,4 +70,3 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
         st.write(f"**{user}:** {message}")
 else:
     st.warning("Please enter and confirm your OpenAI API key to start chatting.")
-
