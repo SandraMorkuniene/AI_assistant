@@ -22,11 +22,14 @@ if api_key:
 
 st.sidebar.header("⚙️ Model Settings")
 temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
-max_tokens = st.sidebar.slider("Max Tokens", 50, 500, 200)
+
+# Convert words to tokens (1 word ≈ 1.33 tokens)
+words = st.sidebar.slider("Max Words", 50, 375, 150)  # Max tokens ≈ 500
+max_tokens = int(words * 1.33)
 
 # Initialize OpenAI Chat Model
 if st.session_state.openai_api_key:
-    chat_model = ChatOpenAI(temperature=temperature, model_name="gpt-4", openai_api_key=st.session_state.openai_api_key)
+    chat_model = ChatOpenAI(temperature=temperature, model_name="gpt-4o", openai_api_key=st.session_state.openai_api_key)
     memory = ConversationBufferMemory()
     chatbot = ConversationalRetrievalChain(llm=chat_model, memory=memory)
 
@@ -53,5 +56,3 @@ if st.session_state.openai_api_key:
     if st.sidebar.button("Download"):
         chat_data = json.dumps(st.session_state.chat_history, indent=4)
         st.sidebar.download_button("Download Chat", chat_data, file_name="chat_history.json", mime="application/json")
-
-
