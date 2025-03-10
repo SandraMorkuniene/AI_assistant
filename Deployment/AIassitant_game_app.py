@@ -24,14 +24,14 @@ if st.sidebar.button("Confirm API Key"):
     st.sidebar.success("API Key Confirmed!")
 
 st.sidebar.header("⚙️ Model Settings")
-model_name = st.sidebar.selectbox("Model", ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"], index=1)
+model_name = st.sidebar.selectbox("Model", ["gpt-3.5-turbo", "gpt-4", "gpt-4o"], index=1)
 temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
 top_p = st.sidebar.slider("Top-p (nucleus sampling)", 0.0, 1.0, 1.0)
 frequency_penalty = st.sidebar.slider("Frequency Penalty", -2.0, 2.0, 0.0)
 presence_penalty = st.sidebar.slider("Presence Penalty", -2.0, 2.0, 0.0)
 
 # Convert words to tokens (1 word ≈ 1.33 tokens)
-words = st.sidebar.slider("Max Words", 50, 375, 150)  # Max tokens ≈ 500
+words = st.sidebar.slider("Max Words", 50, 500, 150)  # Max tokens ≈ 500
 max_tokens = int(words * 1.33)
 
 # Download Chat History (Always Visible)
