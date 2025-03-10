@@ -24,7 +24,7 @@ st.sidebar.header("⚙️ Model Settings")
 temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
 
 # Convert words to tokens (1 word ≈ 1.33 tokens)
-words = st.sidebar.slider("Max Words", 50, 375, 150)  # Max tokens ≈ 500
+words = st.sidebar.slider("Max Words", 50, 500, 150)  # Max tokens ≈ 500
 max_tokens = int(words * 1.33)
 
 # Initialize OpenAI Chat Model
