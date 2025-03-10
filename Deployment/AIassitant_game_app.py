@@ -6,6 +6,13 @@ from fpdf import FPDF
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 
+# OpenAI Pricing per 1K tokens (update if necessary)
+MODEL_PRICING = {
+    "gpt-3.5-turbo": {"input": 0.0015, "output": 0.002},
+    "gpt-4": {"input": 0.03, "output": 0.06},
+    "gpt-4-turbo": {"input": 0.01, "output": 0.03},
+}
+
 # Initialize session state
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
@@ -15,6 +22,8 @@ if 'api_confirmed' not in st.session_state:
     st.session_state.api_confirmed = False
 if 'user_input' not in st.session_state:
     st.session_state.user_input = ""
+if 'total_cost' not in st.session_state:
+    st.session_state.total_cost = 0.0
 
 # Sidebar - User API Key & Model Settings
 st.sidebar.header("🔑 OpenAI API Key")
@@ -88,8 +97,20 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
         with st.spinner("Thinking..."):
             response = chat_model.invoke(user_input.strip())  # Directly call the model
             response_text = response.content  # Extract just the text response
+            
+            # Token Estimation & Cost Calculation
+            prompt_tokens = len(user_input.strip().split()) * 1.33  # Approximation: 1 word ≈ 1.33 tokens
+            completion_tokens = len(response_text.split()) * 1.33
+            total_tokens = prompt_tokens + completion_tokens
+            cost = ((prompt_tokens / 1000) * MODEL_PRICING[model_name]["input"]) + ((completion_tokens / 1000) * MODEL_PRICING[model_name]["output"])
+            st.session_state.total_cost += cost
+            
+            # Update chat history
             st.session_state.chat_history.append(("You", user_input.strip()))
             st.session_state.chat_history.append(("Bot", response_text))
+            
+            st.write(f"💰 Estimated Cost: ${cost:.6f} (Total: ${st.session_state.total_cost:.6f})")
+            
             st.session_state.user_input = ""  # Clear input field
             st.rerun()
         st.session_state.user_input = ""  # Ensure input field resets after response
