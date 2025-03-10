@@ -1,4 +1,3 @@
-
 import streamlit as st
 import os
 from langchain.chat_models import ChatOpenAI
@@ -13,23 +12,27 @@ if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 if 'openai_api_key' not in st.session_state:
     st.session_state.openai_api_key = ""
+if 'api_confirmed' not in st.session_state:
+    st.session_state.api_confirmed = False
 
 # Sidebar - User API Key & Model Settings
 st.sidebar.header("🔑 OpenAI API Key")
 api_key = st.sidebar.text_input("Enter your OpenAI API key", type="password")
-if api_key:
+if st.sidebar.button("Confirm API Key"):
     st.session_state.openai_api_key = api_key
+    st.session_state.api_confirmed = True
+    st.sidebar.success("API Key Confirmed!")
 
 st.sidebar.header("⚙️ Model Settings")
 temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
 
 # Convert words to tokens (1 word ≈ 1.33 tokens)
-words = st.sidebar.slider("Max Words", 50, 500, 150)  # Max tokens ≈ 500
+words = st.sidebar.slider("Max Words", 50, 375, 150)  # Max tokens ≈ 500
 max_tokens = int(words * 1.33)
 
 # Initialize OpenAI Chat Model
-if st.session_state.openai_api_key:
-    chat_model = ChatOpenAI(temperature=temperature, model_name="gpt-4o", openai_api_key=st.session_state.openai_api_key)
+if st.session_state.api_confirmed and st.session_state.openai_api_key:
+    chat_model = ChatOpenAI(temperature=temperature, model_name="gpt-4", openai_api_key=st.session_state.openai_api_key)
     memory = ConversationBufferMemory()
     chatbot = ConversationalRetrievalChain(llm=chat_model, memory=memory)
 
@@ -56,3 +59,6 @@ if st.session_state.openai_api_key:
     if st.sidebar.button("Download"):
         chat_data = json.dumps(st.session_state.chat_history, indent=4)
         st.sidebar.download_button("Download Chat", chat_data, file_name="chat_history.json", mime="application/json")
+else:
+    st.warning("Please enter and confirm your OpenAI API key to start chatting.")
+
