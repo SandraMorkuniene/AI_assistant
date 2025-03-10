@@ -30,6 +30,13 @@ temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
 words = st.sidebar.slider("Max Words", 50, 375, 150)  # Max tokens ≈ 500
 max_tokens = int(words * 1.33)
 
+# Download Chat History (Always Visible)
+st.sidebar.subheader("⬇️ Download Chat")
+export_format = st.sidebar.selectbox("Format", ["JSON", "CSV", "PDF"])
+if st.sidebar.button("Download"):
+    chat_data = json.dumps(st.session_state.chat_history, indent=4) if st.session_state.chat_history else "[]"
+    st.sidebar.download_button("Download Chat", chat_data, file_name="chat_history.json", mime="application/json")
+
 # Initialize OpenAI Chat Model
 if st.session_state.api_confirmed and st.session_state.openai_api_key:
     chat_model = ChatOpenAI(temperature=temperature, model_name="gpt-4", openai_api_key=st.session_state.openai_api_key)
@@ -52,13 +59,5 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
     st.subheader("📜 Chat History")
     for user, message in st.session_state.chat_history:
         st.write(f"**{user}:** {message}")
-
-    # Download Chat History
-    st.sidebar.subheader("⬇️ Download Chat")
-    export_format = st.sidebar.selectbox("Format", ["JSON", "CSV", "PDF"])
-    if st.sidebar.button("Download"):
-        chat_data = json.dumps(st.session_state.chat_history, indent=4)
-        st.sidebar.download_button("Download Chat", chat_data, file_name="chat_history.json", mime="application/json")
 else:
     st.warning("Please enter and confirm your OpenAI API key to start chatting.")
-
