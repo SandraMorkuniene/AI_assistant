@@ -24,7 +24,11 @@ if st.sidebar.button("Confirm API Key"):
     st.sidebar.success("API Key Confirmed!")
 
 st.sidebar.header("⚙️ Model Settings")
+model_name = st.sidebar.selectbox("Model", ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"], index=1)
 temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
+top_p = st.sidebar.slider("Top-p (nucleus sampling)", 0.0, 1.0, 1.0)
+frequency_penalty = st.sidebar.slider("Frequency Penalty", -2.0, 2.0, 0.0)
+presence_penalty = st.sidebar.slider("Presence Penalty", -2.0, 2.0, 0.0)
 
 # Convert words to tokens (1 word ≈ 1.33 tokens)
 words = st.sidebar.slider("Max Words", 50, 375, 150)  # Max tokens ≈ 500
@@ -39,7 +43,15 @@ if st.sidebar.button("Download"):
 
 # Initialize OpenAI Chat Model
 if st.session_state.api_confirmed and st.session_state.openai_api_key:
-    chat_model = ChatOpenAI(temperature=temperature, model_name="gpt-4", openai_api_key=st.session_state.openai_api_key)
+    chat_model = ChatOpenAI(
+        temperature=temperature,
+        model_name=model_name,
+        openai_api_key=st.session_state.openai_api_key,
+        max_tokens=max_tokens,
+        top_p=top_p,
+        frequency_penalty=frequency_penalty,
+        presence_penalty=presence_penalty
+    )
     memory = ConversationBufferMemory()
     chatbot = ConversationalRetrievalChain(llm=chat_model, memory=memory)
 
