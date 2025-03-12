@@ -19,3 +19,9 @@ langchain-core==0.3.43
 langchain-text-splitters==0.3.6
 langcodes==3.5.0
 fpdf==1.7.2
+faiss-cpu==1.10.0
+chroma-hnswlib==0.7.6
+chromadb==0.6.3
+pinecone==6.0.1
+pinecone-client==6.0.0
+pypdf==5.3.1
