@@ -10,6 +10,38 @@ from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+import boto3
+import psycopg2
+
+
+# Load secrets from Streamlit secrets
+AWS_ACCESS_KEY = st.secrets["AWS_ACCESS_KEY"]
+AWS_SECRET_KEY = st.secrets["AWS_SECRET_KEY"]
+BUCKET_NAME = st.secrets["BUCKET_NAME"]
+
+DB_HOST = st.secrets["DB_HOST"]
+DB_NAME = st.secrets["DB_NAME"]
+DB_USER = st.secrets["DB_USER"]
+DB_PASSWORD = st.secrets["DB_PASSWORD"]
+
+# Initialize S3 Client
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY
+)
+
+# Initialize Database Connection
+def get_db_connection():
+    return psycopg2.connect(
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=5432
+    )
+
+
 
 # OpenAI Pricing per 1K tokens
 MODEL_PRICING = {
