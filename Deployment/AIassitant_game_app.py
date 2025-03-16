@@ -181,13 +181,21 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
         cost = ((prompt_tokens / 1000) * MODEL_PRICING[model_name]["input"]) + ((completion_tokens / 1000) * MODEL_PRICING[model_name]["output"])
         st.session_state.total_cost += cost
 
+        # Debugging: Check calculated cost and total cost
+        st.write(f"Prompt Tokens: {prompt_tokens}")
+        st.write(f"Completion Tokens: {completion_tokens}")
+        st.write(f"Total Tokens: {total_tokens}")
+        st.write(f"Cost for this response: ${cost:.6f}")
+        st.write(f"Total Cost: ${st.session_state.total_cost:.6f}")
+
+        
         # Update chat history
         st.session_state.chat_history.append(("You", user_input.strip()))
         st.session_state.chat_history.append(("Bot", response_text))
 
         st.write(f"💰 Estimated Cost: ${cost:.6f} (Total: ${st.session_state.total_cost:.6f})")
 
-        st.rerun()
+        #st.rerun()
 
 else:
     st.warning("Please enter and confirm your OpenAI API key to start chatting.")
