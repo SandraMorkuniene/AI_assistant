@@ -179,6 +179,9 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
         completion_tokens = len(response_text.split()) * 1.33  # Token calculation after ensuring it's a string
         total_tokens = prompt_tokens + completion_tokens
         cost = ((prompt_tokens / 1000) * MODEL_PRICING[model_name]["input"]) + ((completion_tokens / 1000) * MODEL_PRICING[model_name]["output"])
+        if 'total_cost' not in st.session_state:
+            st.session_state.total_cost = 0
+        
         st.session_state.total_cost += cost
 
     
@@ -191,7 +194,8 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
         st.session_state.chat_history.append(("Bot", response_text))
 
 
-        st.rerun()
+        #st.rerun()
+        st.experimental_rerun()
 
 else:
     st.warning("Please enter and confirm your OpenAI API key to start chatting.")
