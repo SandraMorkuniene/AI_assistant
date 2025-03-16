@@ -88,24 +88,51 @@ st.sidebar.header("📄 Upload Documents")
 uploaded_files = st.sidebar.file_uploader("Upload PDFs or TXT files", type=["pdf", "txt"], accept_multiple_files=True)
 
 # Process uploaded documents
-docs = []
 if uploaded_files:
-    for file in uploaded_files:
-        if file.type == "application/pdf":
-            loader = PyPDFLoader(file)
+    docs = []  # Store document texts
+
+    conn = get_db_connection()  # Connect to AWS RDS
+    cur = conn.cursor()
+
+    for uploaded_file in uploaded_files:
+        # 🔹 Step 1: Save file in S3
+        s3_file_key = f"uploads/{uploaded_file.name}"
+        s3_client.upload_fileobj(uploaded_file, BUCKET_NAME, s3_file_key)
+        s3_file_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{s3_file_key}"
+
+        # 🔹 Step 2: Save metadata in AWS RDS (PostgreSQL)
+        cur.execute(
+            "INSERT INTO documents (file_name, s3_url) VALUES (%s, %s) RETURNING id",
+            (uploaded_file.name, s3_file_url)
+        )
+        doc_id = cur.fetchone()[0]  # Get the document ID
+        conn.commit()
+
+        # 🔹 Step 3: Load document content for vector storage
+        temp_file_path = os.path.join("/tmp", uploaded_file.name)
+        with open(temp_file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+
+        if uploaded_file.type == "application/pdf":
+            loader = PyPDFLoader(temp_file_path)
         else:
-            loader = TextLoader(file)
-        docs.extend(loader.load())
-    
-    # Split text into chunks
+            loader = TextLoader(temp_file_path)
+
+        docs.extend(loader.load())  # Load document content
+        os.remove(temp_file_path)  # Delete temp file
+
+    # 🔹 Step 4: Convert to vectors & store in FAISS
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
     chunks = text_splitter.split_documents(docs)
-    
-    # Embed & store in vector DB
+
     embeddings = OpenAIEmbeddings(openai_api_key=st.session_state.openai_api_key)
     st.session_state.vector_store = FAISS.from_documents(chunks, embeddings)
-    st.sidebar.success("Documents processed and stored in vector DB!")
 
+    st.sidebar.success("✅ Documents stored in vector DB!")
+
+    cur.close()
+    conn.close()  # Close RDS connection
+    
 # Initialize OpenAI Chat Model
 if st.session_state.api_confirmed and st.session_state.openai_api_key:
     chat_model = ChatOpenAI(
