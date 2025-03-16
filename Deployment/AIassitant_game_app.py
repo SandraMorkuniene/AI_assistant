@@ -190,7 +190,6 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
         st.session_state.chat_history.append(("You", user_input.strip()))
         st.session_state.chat_history.append(("Bot", response_text))
 
-        st.write(f"💰 Estimated Cost: ${cost:.6f} (Total: ${st.session_state.total_cost:.6f})")
 
         st.rerun()
 
