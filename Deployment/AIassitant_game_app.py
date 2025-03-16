@@ -152,11 +152,11 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
     
     # Display Chat History
     st.subheader("📜 Chat History")
-    for user, message in reversed(st.session_state.chat_history):
+    for user, message in st.session_state.chat_history:
         st.write(f"**{user}:** {message}")
     
     # User Input
-    user_input = st.text_input("You:", key="user_input", value="")
+    user_input = st.text_input("You:", key="user_input")
     if st.button("Send") and user_input.strip():
         with st.spinner("Processing..."):
             if st.session_state.vector_store is not None:
@@ -181,10 +181,7 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
         cost = ((prompt_tokens / 1000) * MODEL_PRICING[model_name]["input"]) + ((completion_tokens / 1000) * MODEL_PRICING[model_name]["output"])
         st.session_state.total_cost += cost
 
-        # Debugging: Check calculated cost and total cost
-        st.write(f"Prompt Tokens: {prompt_tokens}")
-        st.write(f"Completion Tokens: {completion_tokens}")
-        st.write(f"Total Tokens: {total_tokens}")
+    
         st.write(f"Cost for this response: ${cost:.6f}")
         st.write(f"Total Cost: ${st.session_state.total_cost:.6f}")
 
@@ -195,7 +192,7 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
 
         st.write(f"💰 Estimated Cost: ${cost:.6f} (Total: ${st.session_state.total_cost:.6f})")
 
-        #st.rerun()
+        st.rerun()
 
 else:
     st.warning("Please enter and confirm your OpenAI API key to start chatting.")
