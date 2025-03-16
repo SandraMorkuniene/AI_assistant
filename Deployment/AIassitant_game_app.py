@@ -194,8 +194,8 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
         st.session_state.chat_history.append(("Bot", response_text))
 
 
-        #st.rerun()
-        st.experimental_rerun()
+        st.rerun()
+        
 
 else:
     st.warning("Please enter and confirm your OpenAI API key to start chatting.")
