@@ -10,6 +10,7 @@ from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.schema import AIMessage
 import boto3
 import psycopg2
 
