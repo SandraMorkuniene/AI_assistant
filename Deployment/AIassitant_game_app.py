@@ -156,7 +156,7 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
         st.write(f"**{user}:** {message}")
     
     # User Input
-    user_input = st.text_input("You:", key="user_input")
+    user_input = st.text_input("You:", key="user_input", value="")
     if st.button("Send") and user_input.strip():
         with st.spinner("Processing..."):
             if st.session_state.vector_store is not None:
@@ -187,7 +187,6 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
 
         st.write(f"💰 Estimated Cost: ${cost:.6f} (Total: ${st.session_state.total_cost:.6f})")
 
-        st.session_state.user_input = ""
         st.rerun()
 
 else:
