@@ -157,26 +157,32 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
     # User Input
     user_input = st.text_input("You:", key="user_input")
     if st.button("Send") and user_input.strip():
-        with st.spinner("Searching documents..."):
+    with st.spinner("Processing..."):
+        if st.session_state.vector_store is not None:
+            # If documents exist, use Retrieval-Augmented Generation (RAG)
             retriever = st.session_state.vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})
             qa_chain = RetrievalQA.from_chain_type(llm=chat_model, retriever=retriever)
             response = qa_chain.run(user_input)
-            
-            # Token Cost Calculation
-            prompt_tokens = len(user_input.strip().split()) * 1.33
-            completion_tokens = len(response.split()) * 1.33
-            total_tokens = prompt_tokens + completion_tokens
-            cost = ((prompt_tokens / 1000) * MODEL_PRICING[model_name]["input"]) + ((completion_tokens / 1000) * MODEL_PRICING[model_name]["output"])
-            st.session_state.total_cost += cost
-            
-            # Update chat history
-            st.session_state.chat_history.append(("You", user_input.strip()))
-            st.session_state.chat_history.append(("Bot", response))
-            
-            st.write(f"💰 Estimated Cost: ${cost:.6f} (Total: ${st.session_state.total_cost:.6f})")
-            
-            st.session_state.user_input = ""
-            st.rerun()
+        else:
+            # If no documents exist, use OpenAI model directly
+            response = chat_model.invoke(user_input)
+
+        # Token Cost Calculation
+        prompt_tokens = len(user_input.strip().split()) * 1.33
+        completion_tokens = len(response.split()) * 1.33
+        total_tokens = prompt_tokens + completion_tokens
+        cost = ((prompt_tokens / 1000) * MODEL_PRICING[model_name]["input"]) + ((completion_tokens / 1000) * MODEL_PRICING[model_name]["output"])
+        st.session_state.total_cost += cost
+
+        # Update chat history
+        st.session_state.chat_history.append(("You", user_input.strip()))
+        st.session_state.chat_history.append(("Bot", response))
+
+        st.write(f"💰 Estimated Cost: ${cost:.6f} (Total: ${st.session_state.total_cost:.6f})")
+
+        st.session_state.user_input = ""
+        st.rerun()
+
 else:
     st.warning("Please enter and confirm your OpenAI API key to start chatting.")
 
