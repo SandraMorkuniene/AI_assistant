@@ -166,10 +166,16 @@ if st.session_state.api_confirmed and st.session_state.openai_api_key:
             else:
             # If no documents exist, use OpenAI model directly
                 response = chat_model.invoke(user_input)
-
+                
+        # Convert AIMessage to a string
+            if isinstance(response, AIMessage):
+                response_text = response.content  # Extract the text content
+            else:
+                response_text = str(response)
+                
         # Token Cost Calculation
             prompt_tokens = len(user_input.strip().split()) * 1.33
-            completion_tokens = len(response.split()) * 1.33
+            completion_tokens = len(response_text.split()) * 1.33  
             total_tokens = prompt_tokens + completion_tokens
             cost = ((prompt_tokens / 1000) * MODEL_PRICING[model_name]["input"]) + ((completion_tokens / 1000) * MODEL_PRICING[model_name]["output"])
             st.session_state.total_cost += cost
