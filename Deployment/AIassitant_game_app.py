@@ -72,14 +72,6 @@ if st.sidebar.button("Confirm API Key"):
     st.session_state.api_confirmed = True
     st.sidebar.success("API Key Confirmed!")
 
-st.sidebar.header("⚙️ Model Settings")
-model_name = st.sidebar.selectbox("Select Model", ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"], index=1)
-temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
-
-# System Prompt Input
-st.sidebar.header("📝 System Prompt")
-st.session_state.system_prompt = st.sidebar.text_area("Enter a system prompt")
-
 # New Chat Button
 if st.sidebar.button("➕ New Chat"):
     st.session_state.chat_history = []
@@ -87,43 +79,53 @@ if st.sidebar.button("➕ New Chat"):
     st.sidebar.success("New chat started!")
     st.rerun()
 
+st.sidebar.header("⚙️ Model Settings")
+with st.sidebar.expander("🔽 Advanced Model Settings"):
+    model_name = st.selectbox("Select Model", ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"], index=1)
+    temperature = st.slider("Temperature", 0.0, 1.0, 0.7)
+    top_p = st.slider("Top-p (nucleus sampling)", 0.0, 1.0, 1.0)
+    frequency_penalty = st.slider("Frequency Penalty", -2.0, 2.0, 0.0)
+    presence_penalty = st.slider("Presence Penalty", -2.0, 2.0, 0.0)
+
+# System Prompt Input
+st.sidebar.header("📝 System Prompt")
+st.session_state.system_prompt = st.sidebar.text_area("Enter a system prompt")
+
+# Sidebar for document upload
+st.sidebar.header("📄 Upload Documents")
+uploaded_files = st.sidebar.file_uploader("Upload PDFs or TXT files", type=["pdf", "txt"], accept_multiple_files=True)
+if uploaded_files:
+    docs = []
+    for uploaded_file in uploaded_files:
+        loader = PyPDFLoader(uploaded_file) if uploaded_file.type == "application/pdf" else TextLoader(uploaded_file)
+        docs.extend(loader.load())
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+    chunks = text_splitter.split_documents(docs)
+    embeddings = OpenAIEmbeddings(openai_api_key=st.session_state.openai_api_key)
+    st.session_state.vector_store = FAISS.from_documents(chunks, embeddings)
+    st.sidebar.success("✅ Documents stored in vector DB!")
+
 st.title("🤖 RAG-Enhanced Chatbot")
 st.write("Ask questions based on uploaded documents!")
 
-# Display Chat History
 st.subheader("📜 Chat History")
 for user, message in st.session_state.chat_history:
     st.write(f"**{user}:** {message}")
 
-# User Input
 user_input = st.text_input("You:", key="user_input")
 if st.button("Send") and user_input.strip():
     with st.spinner("Processing..."):
-        if st.session_state.vector_store is not None:
-            retriever = st.session_state.vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})
-            qa_chain = RetrievalQA.from_chain_type(llm=ChatOpenAI(model_name=model_name, openai_api_key=st.session_state.openai_api_key), retriever=retriever)
-            response = qa_chain.run(user_input)
-        else:
-            chat_model = ChatOpenAI(
-                temperature=temperature,
-                model_name=model_name,
-                openai_api_key=st.session_state.openai_api_key
-            )
-            response = chat_model.invoke(user_input)
-    
+        chat_model = ChatOpenAI(
+            temperature=temperature,
+            model_name=model_name,
+            openai_api_key=st.session_state.openai_api_key,
+            max_tokens=150,
+            top_p=top_p,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty
+        )
+        response = chat_model.invoke(user_input)
     response_text = response.content if isinstance(response, AIMessage) else str(response)
-
-    # Token Cost Calculation
-    prompt_tokens = len(user_input.strip().split()) * 1.33
-    completion_tokens = len(response_text.split()) * 1.33
-    total_tokens = prompt_tokens + completion_tokens
-    cost = ((prompt_tokens / 1000) * MODEL_PRICING[model_name]["input"]) + ((completion_tokens / 1000) * MODEL_PRICING[model_name]["output"])
-    st.session_state.total_cost += cost
-
-    st.write(f"Cost for this response: ${cost:.6f}")
-    st.write(f"Total Cost: ${st.session_state.total_cost:.6f}")
-
-    # Update chat history
     st.session_state.chat_history.append(("You", user_input.strip()))
     st.session_state.chat_history.append(("Bot", response_text))
     st.rerun()
