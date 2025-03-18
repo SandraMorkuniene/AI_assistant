@@ -96,14 +96,41 @@ st.sidebar.header("📄 Upload Documents")
 uploaded_files = st.sidebar.file_uploader("Upload PDFs or TXT files", type=["pdf", "txt"], accept_multiple_files=True)
 if uploaded_files:
     docs = []
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
     for uploaded_file in uploaded_files:
-        loader = PyPDFLoader(uploaded_file) if uploaded_file.type == "application/pdf" else TextLoader(uploaded_file)
-        docs.extend(loader.load())
+        with st.spinner(f"Uploading {uploaded_file.name}..."):
+            # Save file in S3
+            s3_file_key = f"uploads/{uploaded_file.name}"
+            s3_client.upload_fileobj(uploaded_file, BUCKET_NAME, s3_file_key)
+            s3_file_url = f"https://{BUCKET_NAME}.s3.amazonaws.com/{s3_file_key}"
+            
+            # Save metadata in AWS RDS (PostgreSQL)
+            cur.execute(
+                "INSERT INTO documents (file_name, s3_url) VALUES (%s, %s) RETURNING id",
+                (uploaded_file.name, s3_file_url)
+            )
+            conn.commit()
+            
+            # Load document for processing
+            temp_file_path = os.path.join("/tmp", uploaded_file.name)
+            with open(temp_file_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            
+            loader = PyPDFLoader(temp_file_path) if uploaded_file.type == "application/pdf" else TextLoader(temp_file_path)
+            docs.extend(loader.load())
+            os.remove(temp_file_path)
+    
+    # Convert to vectors & store in FAISS
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
     chunks = text_splitter.split_documents(docs)
     embeddings = OpenAIEmbeddings(openai_api_key=st.session_state.openai_api_key)
     st.session_state.vector_store = FAISS.from_documents(chunks, embeddings)
-    st.sidebar.success("✅ Documents stored in vector DB!")
+    
+    cur.close()
+    conn.close()
+    st.sidebar.success("✅ Documents uploaded and stored in vector DB!")
 
 st.title("🤖 RAG-Enhanced Chatbot")
 st.write("Ask questions based on uploaded documents!")
