@@ -1,26 +1,4 @@
-import streamlit as st
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain.chains import LLMChain
-from langchain.chat_models import ChatOpenAI
-import PyPDF2
-import io
-
-# Initialize LLM (in case no documents are uploaded)
 llm = ChatOpenAI(model="gpt-3.5-turbo")
-
-def process_pdf(uploaded_file):
-    # Extract text from a PDF file
-    with io.BytesIO(uploaded_file.getvalue()) as byte_file:
-        pdf_reader = PyPDF2.PdfReader(byte_file)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text()
-        return text
-
-def process_text_file(uploaded_file):
-    # Extract text from a plain text file
-    return uploaded_file.getvalue().decode("utf-8")
 
 # 1️⃣ Sidebar for document upload
 st.sidebar.header("📄 Upload Documents")
@@ -32,20 +10,17 @@ docs = []  # This will hold your document text
 if uploaded_files:
     for uploaded_file in uploaded_files:
         # Process and add documents to `docs` list
-        # You can use PyPDFLoader, TextLoader, etc. depending on the file type
         if uploaded_file.type == "application/pdf":
-            # Process PDF (Use your own code for processing PDFs)
             text = process_pdf(uploaded_file)
             docs.append(text)
         elif uploaded_file.type == "text/plain":
-            # Process text file
             text = process_text_file(uploaded_file)
             docs.append(text)
     
     # 3️⃣ If documents are provided, vectorize them with OpenAI Embeddings and FAISS
     if docs:
         embeddings = OpenAIEmbeddings()
-        faiss_index = FAISS.from_documents(docs, embeddings)
+        faiss_index = FAISS.from_texts(docs, embeddings)  # Notice how we pass the list of text strings to FAISS
         st.success(f"Successfully loaded and indexed {len(docs)} documents.")
     else:
         st.error("No documents found in the uploaded files.")
@@ -59,7 +34,7 @@ if query:
     if uploaded_files:
         # Use FAISS to retrieve context if documents were uploaded
         context = faiss_index.similarity_search(query, k=2)  # Fetch top 2 relevant docs
-        context_text = "\n".join([doc.page_content for doc in context])  # Combine document text
+        context_text = "\n".join([doc for doc in context])  # Combine document text into one string
 
         # Combine the context with the user query for the LLM model
         prompt = f"Use the following context to answer the question:\n{context_text}\nQuestion: {query}\nAnswer:"
@@ -72,4 +47,3 @@ if query:
         prompt = f"Answer the following question in a general way: {query}"
         response = llm(prompt)
         st.write(response['choices'][0]['message']['content'])
-
