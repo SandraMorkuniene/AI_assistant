@@ -60,20 +60,28 @@ uploaded_files = st.sidebar.file_uploader("Upload PDFs or TXT files", type=["pdf
 
 if uploaded_files:
     docs = []
+
     for uploaded_file in uploaded_files:
-        # 1️⃣ Save the file locally
-        file_path = os.path.join("/tmp", uploaded_file.name)  # Change "/tmp" for Windows
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+        # ✅ Use tempfile to save uploaded files properly
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf" if uploaded_file.type == "application/pdf" else ".txt") as temp_file:
+            temp_file.write(uploaded_file.getbuffer())
+            file_path = temp_file.name  # Now this is a real file path
 
-        # 2️⃣ Load the file with PyPDFLoader or TextLoader
-        if uploaded_file.type == "application/pdf":
-            loader = PyPDFLoader(file_path)  # Now passing the saved file path
-        elif uploaded_file.type == "text/plain":
-            loader = TextLoader(file_path)
+        # ✅ Debugging: Check file path
+        st.write(f"Processing file: {file_path}")
 
-        docs.extend(loader.load())  # Process the document
+        try:
+            # ✅ Load the file with PyPDFLoader or TextLoader
+            if uploaded_file.type == "application/pdf":
+                loader = PyPDFLoader(file_path)
+            elif uploaded_file.type == "text/plain":
+                loader = TextLoader(file_path)
 
+            docs.extend(loader.load())  # Process the document
+            st.success(f"Successfully processed: {uploaded_file.name}")
+
+        except Exception as e:
+            st.error(f"Error loading {uploaded_file.name}: {e}")
 
 
 # Qdrant Client Setup (AWS)
