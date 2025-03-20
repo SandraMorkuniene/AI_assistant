@@ -77,7 +77,7 @@ if uploaded_files:
         st.success(f"✅ Successfully loaded: {uploaded_file.name}")
 
 # Qdrant Client Setup (AWS)
-QDRANT_URL = "http://your-ec2-ip:6333"  # Replace with your Qdrant server IP and port
+QDRANT_URL = "https://16.171.65.65:6333"  # Replace with your Qdrant server IP and port
 QDRANT_COLLECTION = "documents"  # Name of the Qdrant collection
 qdrant_client = QdrantClient(url=QDRANT_URL)
 
