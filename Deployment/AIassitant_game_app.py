@@ -21,6 +21,7 @@ def process_text_file(uploaded_file):
     # Extract text from a plain text file
     return uploaded_file.getvalue().decode("utf-8")
 
+
 # 1️⃣ Sidebar for document upload
 st.sidebar.header("📄 Upload Documents")
 uploaded_files = st.sidebar.file_uploader("Upload PDFs or TXT files", type=["pdf", "txt"], accept_multiple_files=True)
@@ -55,8 +56,10 @@ if query:
     if uploaded_files:
         # Use FAISS to retrieve context if documents were uploaded
         context = faiss_index.similarity_search(query, k=2)  # Fetch top 2 relevant docs
-        context_text = "\n".join([doc for doc in context])  # Combine document text into one string
-
+        
+        # Extract text from Document objects and join them into one string
+        context_text = "\n".join([doc.page_content for doc in context])  # Extract page_content from each document
+        
         # Combine the context with the user query for the LLM model
         prompt = f"Use the following context to answer the question:\n{context_text}\nQuestion: {query}\nAnswer:"
 
@@ -68,5 +71,3 @@ if query:
         prompt = f"Answer the following question in a general way: {query}"
         response = llm(prompt)
         st.write(response['choices'][0]['message']['content'])
-
-
