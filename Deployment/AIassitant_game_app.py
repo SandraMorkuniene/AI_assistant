@@ -3,9 +3,24 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chains import LLMChain
 from langchain.chat_models import ChatOpenAI
+import PyPDF2
+import io
 
 # Initialize LLM (in case no documents are uploaded)
 llm = ChatOpenAI(model="gpt-3.5-turbo")
+
+def process_pdf(uploaded_file):
+    # Extract text from a PDF file
+    with io.BytesIO(uploaded_file.getvalue()) as byte_file:
+        pdf_reader = PyPDF2.PdfReader(byte_file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+        return text
+
+def process_text_file(uploaded_file):
+    # Extract text from a plain text file
+    return uploaded_file.getvalue().decode("utf-8")
 
 # 1️⃣ Sidebar for document upload
 st.sidebar.header("📄 Upload Documents")
