@@ -59,22 +59,23 @@ st.sidebar.header("📄 Upload Documents")
 uploaded_files = st.sidebar.file_uploader("Upload PDFs or TXT files", type=["pdf", "txt"], accept_multiple_files=True)
 
 if uploaded_files:
+    docs = []
     for uploaded_file in uploaded_files:
-        # 1️⃣ Save file locally before processing
-        file_path = os.path.join("/tmp", uploaded_file.name)  # Change "/tmp" for Windows if needed
+        # 1️⃣ Save the file locally
+        file_path = os.path.join("/tmp", uploaded_file.name)  # Change "/tmp" for Windows
         with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())  # Write the file to disk
+            f.write(uploaded_file.getbuffer())
 
-        # 2️⃣ Load the file using PyPDFLoader or TextLoader
+        # 2️⃣ Load the file with PyPDFLoader or TextLoader
         if uploaded_file.type == "application/pdf":
-            loader = PyPDFLoader(file_path)  # Now using the saved file path
-        else:
+            loader = PyPDFLoader(file_path)  # Now passing the saved file path
+        elif uploaded_file.type == "text/plain":
             loader = TextLoader(file_path)
 
-        docs = loader.load()
+        docs.extend(loader.load())  # Process the document
 
-        # 3️⃣ Process the document (e.g., vectorization)
-        st.success(f"✅ Successfully loaded: {uploaded_file.name}")
+    # 3️⃣ Store documents in Qdrant
+    add_documents_to_qdrant(docs)
 
 # Qdrant Client Setup (AWS)
 QDRANT_URL = "https://16.171.65.65:6333"  # Replace with your Qdrant server IP and port
