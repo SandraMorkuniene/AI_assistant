@@ -74,8 +74,7 @@ if uploaded_files:
 
         docs.extend(loader.load())  # Process the document
 
-    # 3️⃣ Store documents in Qdrant
-    add_documents_to_qdrant(docs)
+
 
 # Qdrant Client Setup (AWS)
 QDRANT_URL = "https://16.171.65.65:6333"  # Replace with your Qdrant server IP and port
