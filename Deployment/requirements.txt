@@ -28,3 +28,5 @@ pypdf==5.3.1
 boto3==1.37.13
 botocore==1.37.13
 psycopg2-binary==2.9.10
+docker-pycreds==0.4.0
+qdrant-client==1.13.3
