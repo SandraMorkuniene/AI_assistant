@@ -58,6 +58,24 @@ max_tokens = int(words * 1.33)
 st.sidebar.header("📄 Upload Documents")
 uploaded_files = st.sidebar.file_uploader("Upload PDFs or TXT files", type=["pdf", "txt"], accept_multiple_files=True)
 
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        # 1️⃣ Save file locally before processing
+        file_path = os.path.join("/tmp", uploaded_file.name)  # Change "/tmp" for Windows if needed
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())  # Write the file to disk
+
+        # 2️⃣ Load the file using PyPDFLoader or TextLoader
+        if uploaded_file.type == "application/pdf":
+            loader = PyPDFLoader(file_path)  # Now using the saved file path
+        else:
+            loader = TextLoader(file_path)
+
+        docs = loader.load()
+
+        # 3️⃣ Process the document (e.g., vectorization)
+        st.success(f"✅ Successfully loaded: {uploaded_file.name}")
+
 # Qdrant Client Setup (AWS)
 QDRANT_URL = "http://your-ec2-ip:6333"  # Replace with your Qdrant server IP and port
 QDRANT_COLLECTION = "documents"  # Name of the Qdrant collection
