@@ -2,6 +2,7 @@ import streamlit as st
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chat_models import ChatOpenAI
+from langchain.schema import BaseMessage, HumanMessage, SystemMessage
 import PyPDF2
 import io
 
