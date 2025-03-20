@@ -63,26 +63,25 @@ if uploaded_files:
     docs = []
 
     for uploaded_file in uploaded_files:
-        # ✅ Use tempfile to save uploaded files properly
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf" if uploaded_file.type == "application/pdf" else ".txt") as temp_file:
-            temp_file.write(uploaded_file.getbuffer())
-            file_path = temp_file.name  # Now this is a real file path
-
-        # ✅ Debugging: Check file path
-        st.write(f"Processing file: {file_path}")
-
         try:
-            # ✅ Load the file with PyPDFLoader or TextLoader
+            # Process PDF files
             if uploaded_file.type == "application/pdf":
-                loader = PyPDFLoader(file_path)
-            elif uploaded_file.type == "text/plain":
-                loader = TextLoader(file_path)
+                # Use the file buffer directly with PyPDFLoader
+                loader = PyPDFLoader(uploaded_file)
+                docs.extend(loader.load())  # Process the document
+                st.success(f"Successfully processed PDF: {uploaded_file.name}")
 
-            docs.extend(loader.load())  # Process the document
-            st.success(f"Successfully processed: {uploaded_file.name}")
+            # Process text files
+            elif uploaded_file.type == "text/plain":
+                loader = TextLoader(uploaded_file)
+                docs.extend(loader.load())  # Process the document
+                st.success(f"Successfully processed TXT: {uploaded_file.name}")
 
         except Exception as e:
-            st.error(f"Error loading {uploaded_file.name}: {e}")
+            st.error(f"Error processing {uploaded_file.name}: {e}")
+
+    # Debugging: Check how many documents were loaded
+    st.write(f"Total documents loaded: {len(docs)}")
 
 
 # Qdrant Client Setup (AWS)
