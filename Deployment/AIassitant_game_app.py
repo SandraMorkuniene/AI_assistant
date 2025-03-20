@@ -1,194 +1,95 @@
-import streamlit as st
 import os
-import json
 import tempfile
-import pandas as pd
-from fpdf import FPDF
-from langchain.chat_models import ChatOpenAI
-from langchain.memory import ConversationBufferMemory
 from langchain.document_loaders import PyPDFLoader, TextLoader
-from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.chains import RetrievalQA
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import AIMessage
-from qdrant_client import QdrantClient
-from qdrant_client.models import PointStruct
+from langchain.vectorstores import FAISS
+from langchain.chains.question_answering import load_qa_chain
+import openai
+import streamlit as st
+from langchain_community.document_loaders import TextLoader
 
-# OpenAI Pricing per 1K tokens
-MODEL_PRICING = {
-    "gpt-3.5-turbo": {"input": 0.0015, "output": 0.002},
-    "gpt-4": {"input": 0.03, "output": 0.06},
-    "gpt-4-turbo": {"input": 0.01, "output": 0.03},
-}
+# 1️⃣ Initialize OpenAI Embeddings
+embeddings = OpenAIEmbeddings()
 
-# Initialize session state variables
-if 'qdrant_client' not in st.session_state:
-    st.session_state.qdrant_client = None
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
-if 'openai_api_key' not in st.session_state:
-    st.session_state.openai_api_key = ""
-if 'api_confirmed' not in st.session_state:
-    st.session_state.api_confirmed = False
-if 'user_input' not in st.session_state:
-    st.session_state.user_input = ""
-if 'total_cost' not in st.session_state:
-    st.session_state.total_cost = 0.0
+# 2️⃣ Initialize FAISS index for storing document embeddings
+faiss_index = FAISS.from_documents([], embeddings)
 
-# Sidebar - API Key & Model Settings
-st.sidebar.header("🔑 OpenAI API Key")
-api_key = st.sidebar.text_input("Enter your OpenAI API key", type="password")
-if st.sidebar.button("Confirm API Key"):
-    st.session_state.openai_api_key = api_key
-    st.session_state.api_confirmed = True
-    st.sidebar.success("API Key Confirmed!")
+# Function to process PDF or TXT into chunks
+def process_document(file):
+    if file.type == "application/pdf":
+        loader = PyPDFLoader(file)
+    elif file.type == "text/plain":
+        loader = TextLoader(file)
+    else:
+        return []
 
-st.sidebar.header("⚙️ Model Settings")
-model_name = st.sidebar.selectbox("Model", ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"], index=1)
-temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
-top_p = st.sidebar.slider("Top-p (nucleus sampling)", 0.0, 1.0, 1.0)
-frequency_penalty = st.sidebar.slider("Frequency Penalty", -2.0, 2.0, 0.0)
-presence_penalty = st.sidebar.slider("Presence Penalty", -2.0, 2.0, 0.0)
+    docs = loader.load()
+    return docs
 
-# Convert words to tokens
-words = st.sidebar.slider("Max Words", 50, 375, 150)
-max_tokens = int(words * 1.33)
+# Function to add documents to FAISS index
+def add_to_faiss(docs):
+    # Embedding and adding documents to FAISS index
+    docs_with_embeddings = embeddings.embed_documents([doc.page_content for doc in docs])
+    faiss_index.add(docs_with_embeddings)
 
-# Sidebar for document upload
+# Function to retrieve the most relevant chunks using FAISS
+def retrieve_relevant_chunks(query):
+    # Get the most relevant documents from FAISS
+    query_embedding = embeddings.embed_query(query)
+    results = faiss_index.similarity_search(query_embedding, k=5)  # Retrieve top 5 results
+    return results
+
+# Function to get an answer using the most relevant documents
+def get_answer_from_documents(query):
+    relevant_docs = retrieve_relevant_chunks(query)
+    chain = load_qa_chain(openai, chain_type="stuff")
+    answer = chain.run(input_documents=relevant_docs, question=query)
+    return answer
+
+# Fallback function for answering general queries
+def get_answer_without_documents(query):
+    # If documents aren't provided or the question doesn't require documents, use a fallback method
+    # You can use OpenAI's API or a static response (predefined knowledge) here
+    prompt = f"Answer this question: {query}"
+    response = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt=prompt,
+        max_tokens=100
+    )
+    return response.choices[0].text.strip()
+
+# Sidebar for file upload
 st.sidebar.header("📄 Upload Documents")
 uploaded_files = st.sidebar.file_uploader("Upload PDFs or TXT files", type=["pdf", "txt"], accept_multiple_files=True)
 
+# 3️⃣ Add documents to the FAISS index if uploaded
 if uploaded_files:
     docs = []
-
     for uploaded_file in uploaded_files:
-        try:
-            # Save file content to a temporary file for PDF files
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-                temp_file.write(uploaded_file.getbuffer())  # Save file buffer
-                temp_file_path = temp_file.name  # Get the temporary file path
+        # Save file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf" if uploaded_file.type == "application/pdf" else ".txt") as temp_file:
+            temp_file.write(uploaded_file.getbuffer())
+            temp_file_path = temp_file.name
+        
+        # Process the document
+        document_chunks = process_document(temp_file_path)
+        docs.extend(document_chunks)
+        
+    # Add documents to the FAISS index
+    add_to_faiss(docs)
 
-            # Process PDF files
-            if uploaded_file.type == "application/pdf":
-                loader = PyPDFLoader(temp_file_path)  # Pass the saved file path to PyPDFLoader
-                docs.extend(loader.load())  # Process the document
-                st.success(f"Successfully processed PDF: {uploaded_file.name}")
-
-            # Process text files
-            elif uploaded_file.type == "text/plain":
-                loader = TextLoader(uploaded_file)  # Use the file buffer directly
-                docs.extend(loader.load())  # Process the document
-                st.success(f"Successfully processed TXT: {uploaded_file.name}")
-
-        except Exception as e:
-            st.error(f"Error processing {uploaded_file.name}: {e}")
-
-    # Debugging: Check how many documents were loaded
+    # Display total documents loaded
     st.write(f"Total documents loaded: {len(docs)}")
 
+# Input query from user
+query = st.text_input("Ask a question:")
 
-# Qdrant Client Setup (AWS)
-QDRANT_URL = "https://16.171.65.65:6333"  # Replace with your Qdrant server IP and port
-QDRANT_COLLECTION = "documents"  # Name of the Qdrant collection
-qdrant_client = QdrantClient(url=QDRANT_URL)
-
-# Initialize OpenAI Embeddings for LangChain
-embeddings = OpenAIEmbeddings(openai_api_key=st.session_state.openai_api_key)
-
-# Function to add documents to Qdrant
-def add_documents_to_qdrant(docs):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
-    chunks = text_splitter.split_documents(docs)
-
-    # Convert text to embeddings
-    vectors = embeddings.embed_documents([chunk.page_content for chunk in chunks])
-
-    # Prepare the documents for Qdrant
-    points = [
-        PointStruct(
-            id=f"{i}",
-            vector=vector.tolist(),
-            payload={"text": chunk.page_content}
-        )
-        for i, (chunk, vector) in enumerate(zip(chunks, vectors))
-    ]
+if query:
+    if uploaded_files:
+        # If documents are uploaded, use them to answer the query
+        answer = get_answer_from_documents(query)
+    else:
+        # If no documents are uploaded, use general knowledge or a pre-trained model
+        answer = get_answer_without_documents(query)
     
-    # Store the documents in Qdrant
-    qdrant_client.upsert(collection_name=QDRANT_COLLECTION, points=points)
-    st.sidebar.success("✅ Documents stored in Qdrant!")
-
-# Step 4: Convert and store documents in Qdrant
-if uploaded_files:
-    docs = []
-    for uploaded_file in uploaded_files:
-        if uploaded_file.type == "application/pdf":
-            loader = PyPDFLoader(uploaded_file)
-            docs.extend(loader.load())
-        elif uploaded_file.type == "text/plain":
-            loader = TextLoader(uploaded_file)
-            docs.extend(loader.load())
-
-    add_documents_to_qdrant(docs)
-
-# Initialize OpenAI Chat Model
-if st.session_state.api_confirmed and st.session_state.openai_api_key:
-    chat_model = ChatOpenAI(
-        temperature=temperature,
-        model_name=model_name,
-        openai_api_key=st.session_state.openai_api_key,
-        max_tokens=max_tokens,
-        top_p=top_p,
-        frequency_penalty=frequency_penalty,
-        presence_penalty=presence_penalty
-    )
-    memory = ConversationBufferMemory()
-
-    st.title("🤖 RAG-Enhanced Chatbot")
-    st.write("Ask questions based on uploaded documents!")
-
-    # Display Chat History
-    st.subheader("📜 Chat History")
-    for user, message in st.session_state.chat_history:
-        st.write(f"**{user}:** {message}")
-
-    # User Input
-    user_input = st.text_input("You:", key="user_input")
-    if st.button("Send") and user_input.strip():
-        with st.spinner("Processing..."):
-            if qdrant_client:
-                # Use Qdrant retriever to fetch relevant documents for RAG
-                retriever = qdrant_client.search(
-                    collection_name=QDRANT_COLLECTION,
-                    query_vector=embeddings.embed_query(user_input),
-                    limit=3
-                )
-
-                # Build the retrieval chain
-                qa_chain = RetrievalQA.from_chain_type(llm=chat_model, retriever=retriever)
-                response = qa_chain.run(user_input)
-            else:
-                # If no documents exist, use OpenAI model directly
-                response = chat_model.invoke(user_input)
-
-        # Token Cost Calculation
-        prompt_tokens = len(user_input.strip().split()) * 1.33
-        completion_tokens = len(response.split()) * 1.33
-        total_tokens = prompt_tokens + completion_tokens
-        cost = ((prompt_tokens / 1000) * MODEL_PRICING[model_name]["input"]) + ((completion_tokens / 1000) * MODEL_PRICING[model_name]["output"])
-
-        if 'total_cost' not in st.session_state:
-            st.session_state.total_cost = 0
-
-        st.session_state.total_cost += cost
-
-        st.write(f"Cost for this response: ${cost:.6f}")
-        st.write(f"Total Cost: ${st.session_state.total_cost:.6f}")
-
-        # Update chat history
-        st.session_state.chat_history.append(("You", user_input.strip()))
-        st.session_state.chat_history.append(("Bot", response))
-
-        st.rerun()
-else:
-    st.warning("Please enter and confirm your OpenAI API key to start chatting.")
+    st.write("Answer:", answer)
