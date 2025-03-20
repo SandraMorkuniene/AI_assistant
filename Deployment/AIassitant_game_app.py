@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import json
+import tempfile
 import pandas as pd
 from fpdf import FPDF
 from langchain.chat_models import ChatOpenAI
