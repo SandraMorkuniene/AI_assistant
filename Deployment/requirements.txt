@@ -30,3 +30,4 @@ botocore==1.37.13
 psycopg2-binary==2.9.10
 docker-pycreds==0.4.0
 qdrant-client==1.13.3
+tiktoken-0.9.0
