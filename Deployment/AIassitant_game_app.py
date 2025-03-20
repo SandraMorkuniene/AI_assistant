@@ -72,7 +72,9 @@ if query:
 
         # Generate a response using the LLM
         response = llm(messages)
-        st.write(response['choices'][0]['message']['content'])
+        
+        # Access the content of the AIMessage response
+        st.write(response.content)
     else:
         # If no documents, just use the LLM's general response
         prompt = f"Answer the following question in a general way: {query}"
@@ -85,4 +87,6 @@ if query:
 
         # Generate a response using the LLM
         response = llm(messages)
-        st.write(response['choices'][0]['message']['content'])
+        
+        # Access the content of the AIMessage response
+        st.write(response.content)
