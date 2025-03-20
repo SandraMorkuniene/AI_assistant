@@ -64,16 +64,20 @@ if uploaded_files:
 
     for uploaded_file in uploaded_files:
         try:
+            # Save file content to a temporary file for PDF files
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+                temp_file.write(uploaded_file.getbuffer())  # Save file buffer
+                temp_file_path = temp_file.name  # Get the temporary file path
+
             # Process PDF files
             if uploaded_file.type == "application/pdf":
-                # Use the file buffer directly with PyPDFLoader
-                loader = PyPDFLoader(uploaded_file)
+                loader = PyPDFLoader(temp_file_path)  # Pass the saved file path to PyPDFLoader
                 docs.extend(loader.load())  # Process the document
                 st.success(f"Successfully processed PDF: {uploaded_file.name}")
 
             # Process text files
             elif uploaded_file.type == "text/plain":
-                loader = TextLoader(uploaded_file)
+                loader = TextLoader(uploaded_file)  # Use the file buffer directly
                 docs.extend(loader.load())  # Process the document
                 st.success(f"Successfully processed TXT: {uploaded_file.name}")
 
