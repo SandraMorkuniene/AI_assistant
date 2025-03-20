@@ -63,19 +63,25 @@ if query:
         # Combine the context with the user query for the LLM model
         prompt = f"Use the following context to answer the question:\n{context_text}\nQuestion: {query}\nAnswer:"
 
-        # Ensure prompt is a string (use str() to avoid potential errors)
-        prompt = str(prompt)
+        # Prepare the messages for LLM
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ]
 
         # Generate a response using the LLM
-        response = llm(prompt)
+        response = llm(messages)
         st.write(response['choices'][0]['message']['content'])
     else:
         # If no documents, just use the LLM's general response
         prompt = f"Answer the following question in a general way: {query}"
 
-        # Ensure prompt is a string (use str() to avoid potential errors)
-        prompt = str(prompt)
+        # Prepare the messages for LLM
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ]
 
         # Generate a response using the LLM
-        response = llm(prompt)
+        response = llm(messages)
         st.write(response['choices'][0]['message']['content'])
