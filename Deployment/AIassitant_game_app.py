@@ -38,12 +38,13 @@ if "awaiting_response" not in st.session_state:
 
 # Sidebar - Start new session button at the top
 if st.sidebar.button("🆕 Start New Session"):
-    st.session_state.conversation_history = []
-    st.session_state.uploaded_files = []
+    st.session_state.conversation_history.clear()
+    st.session_state.uploaded_files.clear()
     st.session_state.model_confirmed = False
     st.session_state.user_input = ""
     st.session_state.faiss_index = None
     st.session_state.awaiting_response = False
+    st.experimental_set_query_params()  # Reset UI state properly
     st.rerun()
 
 # Sidebar for file upload
@@ -79,10 +80,9 @@ for message in st.session_state.conversation_history:
     st.chat_message(message["role"]).markdown(message["content"])
 
 # User input
-if st.session_state.model_confirmed and not st.session_state.awaiting_response:
+if st.session_state.model_confirmed:
     query = st.text_input("Ask a question:", key="user_input")
-    
-    if query:
+    if query and not st.session_state.awaiting_response:
         st.session_state.conversation_history.append({"role": "user", "content": query})
         st.session_state.awaiting_response = True
         
@@ -109,6 +109,7 @@ if st.session_state.model_confirmed and not st.session_state.awaiting_response:
         
         st.session_state.conversation_history.append({"role": "assistant", "content": response_text})
         st.session_state.awaiting_response = False
+        st.experimental_set_query_params()  # Properly reset UI
         st.rerun()
 else:
     st.warning("Confirm model settings before asking questions.")
