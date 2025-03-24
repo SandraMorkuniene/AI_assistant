@@ -5,6 +5,10 @@ from langchain.chat_models import ChatOpenAI
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
 import PyPDF2
 import io
+import csv
+from io import StringIO
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 # Initialize LLM (in case no documents are uploaded)
 llm = ChatOpenAI(model="gpt-3.5-turbo")
@@ -28,20 +32,44 @@ uploaded_files = st.sidebar.file_uploader("Upload PDFs or TXT files", type=["pdf
 
 # Sidebar for model settings
 st.sidebar.header("💡 Model Settings")
+
+# Model settings sliders and selectors
 model_choice = st.sidebar.selectbox("Choose Model", ["gpt-3.5-turbo", "gpt-4"])
 model_creativity = st.sidebar.slider("Model Creativity (Temperature)", 0.0, 1.0, 0.7, 0.1)
-
-# Slider to control the response length in words (convert to tokens internally)
-response_length_words = st.sidebar.slider("Response Length (Words)", 50, 500, 150, 10)
+response_length_words = st.sidebar.slider("Response Length (Words)", 50, 1000, 150, 10)
 response_length_tokens = int(response_length_words * 0.75)  # Approximate conversion: 1 word ≈ 0.75 tokens
+
+# Add "Confirm" button to fix model settings
+confirm_button = st.sidebar.button("Confirm Model Settings")
+
+# Initialize session state for model settings if not present
+if "model_choice" not in st.session_state:
+    st.session_state.model_choice = model_choice
+if "model_creativity" not in st.session_state:
+    st.session_state.model_creativity = model_creativity
+if "response_length_tokens" not in st.session_state:
+    st.session_state.response_length_tokens = response_length_tokens
+
+# Update the model settings when "Confirm" is pressed
+if confirm_button:
+    st.session_state.model_choice = model_choice
+    st.session_state.model_creativity = model_creativity
+    st.session_state.response_length_tokens = response_length_tokens
+    st.success("Model settings confirmed for this session.")
+
+# Initialize LLM with the confirmed settings
+llm = ChatOpenAI(model=st.session_state.model_choice)
 
 # Button to start a new session
 if st.sidebar.button("🆕 Start New Session"):
     st.session_state.conversation_history = []  # Clear conversation history
+    st.session_state.user_input = ""  # Clear the text input when starting a new session
 
 # Initialize the conversation history in the session state
 if "conversation_history" not in st.session_state:
     st.session_state.conversation_history = []
+if "user_input" not in st.session_state:
+    st.session_state.user_input = ""  # Initialize user input state
 
 # Process uploaded documents if any
 docs = []  # This will hold your document text
@@ -70,9 +98,12 @@ if st.session_state.conversation_history:
         st.chat_message(message["role"]).markdown(message["content"])
 
 # Get the user's query
-query = st.text_input("Ask a question:")
+query = st.text_input("Ask a question:", value=st.session_state.user_input)
 
 if query:
+    # Update the user input state
+    st.session_state.user_input = query
+    
     # Add the user's query to the conversation history
     st.session_state.conversation_history.append({"role": "user", "content": query})
     
@@ -87,15 +118,64 @@ if query:
     # Prepare messages for LLM
     messages = [
         SystemMessage(content="You are a helpful assistant."),
-        HumanMessage(content=prompt)
     ]
+    
+    # Add conversation history to prompt
+    for message in st.session_state.conversation_history:
+        if message["role"] == "user":
+            messages.append(HumanMessage(content=message["content"]))
+        elif message["role"] == "assistant":
+            messages.append(BaseMessage(content=message["content"]))
+
+    # Add current user query
+    messages.append(HumanMessage(content=prompt))
 
     # Generate a response using the LLM with model creativity (temperature) and token count
-    llm_response = llm(messages, temperature=model_creativity, max_tokens=response_length_tokens)
+    llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens)
 
     # Add the model's response to the conversation history
     st.session_state.conversation_history.append({"role": "assistant", "content": llm_response.content})
 
     # Display the assistant's response in the chat
     st.chat_message("assistant").markdown(llm_response.content)
+
+# Save the conversation to a CSV file
+def save_conversation_csv():
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Role", "Message"])
+    for message in st.session_state.conversation_history:
+        writer.writerow([message["role"], message["content"]])
+    return output.getvalue()
+
+# Save the conversation to a PDF file
+def save_conversation_pdf():
+    output_pdf = io.BytesIO()
+    c = canvas.Canvas(output_pdf, pagesize=letter)
+    y_position = 750
+    c.setFont("Helvetica", 10)
+    
+    for message in st.session_state.conversation_history:
+        text = f"{message['role']}: {message['content']}"
+        c.drawString(50, y_position, text)
+        y_position -= 20
+        if y_position < 50:
+            c.showPage()
+            y_position = 750
+    c.save()
+    
+    output_pdf.seek(0)
+    return output_pdf
+
+# Provide download options for the user
+st.sidebar.header("💾 Save Conversation")
+
+if st.sidebar.button("Save as CSV"):
+    csv_data = save_conversation_csv()
+    st.sidebar.download_button("Download CSV", csv_data, "conversation.csv", mime="text/csv")
+
+if st.sidebar.button("Save as PDF"):
+    pdf_data = save_conversation_pdf()
+    st.sidebar.download_button("Download PDF", pdf_data, "conversation.pdf", mime="application/pdf")
+
 
