@@ -66,7 +66,7 @@ if st.sidebar.button("🆕 Start New Session"):
     st.session_state.user_input = ""  # Clear the text input when starting a new session
     st.session_state.uploaded_files = []  # Clear uploaded files
     st.session_state.is_model_confirmed = False  # Reset model confirmation flag
-    st.experimental_rerun()  # Rerun the app to reset everything
+    st.rerun()  # Rerun the app to reset everything
 
 # Initialize the conversation history in the session state
 if "conversation_history" not in st.session_state:
