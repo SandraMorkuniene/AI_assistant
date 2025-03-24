@@ -9,6 +9,7 @@ import csv
 from io import StringIO
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from textwrap import wrap
 
 # Initialize LLM
 llm = ChatOpenAI(model="gpt-3.5-turbo")
@@ -17,10 +18,8 @@ llm = ChatOpenAI(model="gpt-3.5-turbo")
 def process_pdf(uploaded_file):
     with io.BytesIO(uploaded_file.getvalue()) as byte_file:
         pdf_reader = PyPDF2.PdfReader(byte_file)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text() or ""  # Handle None case
-        return text
+        text = "".join([page.extract_text() or "" for page in pdf_reader.pages])
+    return text
 
 # Function to process plain text files
 def process_text_file(uploaded_file):
@@ -30,18 +29,28 @@ def process_text_file(uploaded_file):
 if "conversation_history" not in st.session_state:
     st.session_state.conversation_history = []
 if "uploaded_files" not in st.session_state:
-    st.session_state.uploaded_files = []
+    st.session_state.uploaded_files = None
 if "model_confirmed" not in st.session_state:
     st.session_state.model_confirmed = False
+if "user_input" not in st.session_state:
+    st.session_state.user_input = ""
 
 # Sidebar - Start new session button at the top
 if st.sidebar.button("🆕 Start New Session"):
-    st.session_state.clear()  # Reset everything, including uploaded files
-    st.rerun()  # Re-run the app to apply reset
+    st.session_state.clear()
+    st.rerun()
 
 # Sidebar for file upload
 st.sidebar.header("📄 Upload Documents")
 uploaded_files = st.sidebar.file_uploader("Upload PDFs or TXT files", type=["pdf", "txt"], accept_multiple_files=True)
+
+# Process uploaded documents
+if uploaded_files:
+    docs = [process_pdf(f) if f.type == "application/pdf" else process_text_file(f) for f in uploaded_files]
+    embeddings = OpenAIEmbeddings()
+    faiss_index = FAISS.from_texts(docs, embeddings)
+    st.session_state.uploaded_files = faiss_index
+    st.success(f"Successfully indexed {len(docs)} documents.")
 
 # Sidebar - Model settings
 st.sidebar.header("💡 Model Settings")
@@ -58,60 +67,32 @@ if st.sidebar.button("Confirm Model Settings"):
     st.session_state.model_confirmed = True
     st.success("Model settings confirmed.")
 
-# Process uploaded documents if any
-docs = []
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-        if uploaded_file.type == "application/pdf":
-            text = process_pdf(uploaded_file)
-        elif uploaded_file.type == "text/plain":
-            text = process_text_file(uploaded_file)
-        docs.append(text)
-
-    if docs:
-        embeddings = OpenAIEmbeddings()
-        faiss_index = FAISS.from_texts(docs, embeddings)
-        st.session_state.uploaded_files = faiss_index  # Store vector index
-        st.success(f"Successfully indexed {len(docs)} documents.")
-    else:
-        st.error("No valid text found in the uploaded files.")
-
 # Display conversation history
 for message in st.session_state.conversation_history:
     st.chat_message(message["role"]).markdown(message["content"])
 
-# User input (if settings are confirmed)
+# User input
 if st.session_state.model_confirmed:
-    query = st.text_input("Ask a question:")
+    query = st.text_input("Ask a question:", value=st.session_state.user_input)
     
     if query:
+        st.session_state.user_input = ""  # Clear input field after submission
         st.session_state.conversation_history.append({"role": "user", "content": query})
-
-        # Retrieve relevant docs if uploaded
-        if "uploaded_files" in st.session_state and st.session_state.uploaded_files:
+        
+        if st.session_state.uploaded_files:
             context = st.session_state.uploaded_files.similarity_search(query, k=2)
             context_text = "\n".join([doc.page_content for doc in context])
-            prompt = f"Use the following context:\n{context_text}\nQuestion: {query}\nAnswer:"
+            prompt = f"Use this context:\n{context_text}\nQuestion: {query}\nAnswer:"
         else:
-            prompt = f"Answer the following question: {query}"
-
-        # Construct message history
+            prompt = f"Answer this question: {query}"
+        
         messages = [SystemMessage(content="You are a helpful assistant.")]
-        for message in st.session_state.conversation_history:
-            if message["role"] == "user":
-                messages.append(HumanMessage(content=message["content"]))
-            elif message["role"] == "assistant":
-                messages.append(AIMessage(content=message["content"]))
-
+        for msg in st.session_state.conversation_history:
+            messages.append(HumanMessage(content=msg["content"]) if msg["role"] == "user" else AIMessage(content=msg["content"]))
         messages.append(HumanMessage(content=prompt))
-
-        # Get LLM response
+        
         llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens)
-
-        # Add assistant response to history
         st.session_state.conversation_history.append({"role": "assistant", "content": llm_response.content})
-
-        # Display response
         st.chat_message("assistant").markdown(llm_response.content)
 else:
     st.warning("Confirm model settings before asking questions.")
@@ -121,34 +102,32 @@ def save_conversation_csv():
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(["Role", "Message"])
-    for message in st.session_state.conversation_history:
-        writer.writerow([message["role"], message["content"]])
+    for msg in st.session_state.conversation_history:
+        writer.writerow([msg["role"], msg["content"]])
     return output.getvalue()
 
-# Function to save conversation as PDF
+# Function to save conversation as PDF with text wrapping
 def save_conversation_pdf():
     output_pdf = io.BytesIO()
     c = canvas.Canvas(output_pdf, pagesize=letter)
     y_position = 750
     c.setFont("Helvetica", 10)
     
-    for message in st.session_state.conversation_history:
-        text = f"{message['role']}: {message['content']}"
-        c.drawString(50, y_position, text)
-        y_position -= 20
-        if y_position < 50:
-            c.showPage()
-            y_position = 750
-    c.save()
+    for msg in st.session_state.conversation_history:
+        wrapped_text = wrap(f"{msg['role']}: {msg['content']}", 80)
+        for line in wrapped_text:
+            c.drawString(50, y_position, line)
+            y_position -= 15
+            if y_position < 50:
+                c.showPage()
+                c.setFont("Helvetica", 10)
+                y_position = 750
     
+    c.save()
     output_pdf.seek(0)
     return output_pdf
 
-# Sidebar - Download conversation options (Now Directly Downloads)
+# Sidebar - Download conversation
 st.sidebar.header("💾 Download Conversation")
-
-csv_data = save_conversation_csv()
-st.sidebar.download_button("Download CSV", csv_data, "conversation.csv", mime="text/csv")
-
-pdf_data = save_conversation_pdf()
-st.sidebar.download_button("Download PDF", pdf_data, "conversation.pdf", mime="application/pdf")
+st.sidebar.download_button("Download CSV", save_conversation_csv(), "conversation.csv", "text/csv")
+st.sidebar.download_button("Download PDF", save_conversation_pdf(), "conversation.pdf", "application/pdf")
