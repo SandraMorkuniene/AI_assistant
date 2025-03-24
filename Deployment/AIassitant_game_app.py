@@ -2,7 +2,7 @@ import streamlit as st
 from langchain_community.embeddings import OpenAIEmbeddings  # Update the import
 from langchain_community.vectorstores import FAISS
 from langchain_community.chat_models import ChatOpenAI  # Update the import
-from langchain.schema import BaseMessage, HumanMessage, SystemMessage
+from langchain.schema import HumanMessage, SystemMessage, BaseMessage
 import PyPDF2
 import io
 import csv
@@ -132,18 +132,18 @@ if st.session_state.is_model_confirmed:
 
         # Prepare messages for LLM
         messages = [
-            SystemMessage(content="You are a helpful assistant.", type="system"),  # Specify type explicitly
+            SystemMessage(content="You are a helpful assistant.")  # System message does not need type specified
         ]
         
         # Add conversation history to prompt
         for message in st.session_state.conversation_history:
             if message["role"] == "user":
-                messages.append(HumanMessage(content=message["content"], type="user"))  # Specify type explicitly
+                messages.append(HumanMessage(content=message["content"]))  # No need for 'type' here, it's inferred
             elif message["role"] == "assistant":
-                messages.append(BaseMessage(content=message["content"], type="assistant"))  # Specify type explicitly
+                messages.append(BaseMessage(content=message["content"]))  # No need for 'type' here either
 
         # Add current user query
-        messages.append(HumanMessage(content=prompt, type="user"))  # Specify type explicitly
+        messages.append(HumanMessage(content=prompt))  # No need for 'type' here, it's inferred
 
         # Generate a response using the LLM with model creativity (temperature) and token count
         llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens)
