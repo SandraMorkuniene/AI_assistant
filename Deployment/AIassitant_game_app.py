@@ -26,21 +26,24 @@ def process_text_file(uploaded_file):
 if "conversation_history" not in st.session_state:
     st.session_state.conversation_history = []
 if "uploaded_files" not in st.session_state:
-    st.session_state.uploaded_files = None
+    st.session_state.uploaded_files = []
 if "model_confirmed" not in st.session_state:
     st.session_state.model_confirmed = False
 if "user_input" not in st.session_state:
     st.session_state.user_input = ""
 if "faiss_index" not in st.session_state:
     st.session_state.faiss_index = None
+if "awaiting_response" not in st.session_state:
+    st.session_state.awaiting_response = False
 
 # Sidebar - Start new session button at the top
 if st.sidebar.button("🆕 Start New Session"):
     st.session_state.conversation_history = []
-    st.session_state.uploaded_files = None
+    st.session_state.uploaded_files = []
     st.session_state.model_confirmed = False
     st.session_state.user_input = ""
     st.session_state.faiss_index = None
+    st.session_state.awaiting_response = False
     st.rerun()
 
 # Sidebar for file upload
@@ -53,6 +56,7 @@ if uploaded_files:
     embeddings = OpenAIEmbeddings()
     faiss_index = FAISS.from_texts(docs, embeddings)
     st.session_state.faiss_index = faiss_index
+    st.session_state.uploaded_files = uploaded_files
     st.success(f"Successfully indexed {len(docs)} documents.")
 
 # Sidebar - Model settings
@@ -75,11 +79,12 @@ for message in st.session_state.conversation_history:
     st.chat_message(message["role"]).markdown(message["content"])
 
 # User input
-if st.session_state.model_confirmed:
+if st.session_state.model_confirmed and not st.session_state.awaiting_response:
     query = st.text_input("Ask a question:", key="user_input")
     
     if query:
         st.session_state.conversation_history.append({"role": "user", "content": query})
+        st.session_state.awaiting_response = True
         
         if st.session_state.faiss_index:
             context = st.session_state.faiss_index.similarity_search(query, k=2)
@@ -98,15 +103,12 @@ if st.session_state.model_confirmed:
         
         llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens)
         
-        # Ensure response completes naturally
         response_text = llm_response.content.strip()
-        while not response_text.endswith(('.', '!', '?')):
-            extra_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=20)  # Fetch a few more tokens
-            response_text += " " + extra_response.content.strip()
-            if len(response_text.split()) >= response_length_words:
-                break
+        if not response_text.endswith((".", "!", "?")):
+            response_text += " ... (continued)"
         
         st.session_state.conversation_history.append({"role": "assistant", "content": response_text})
+        st.session_state.awaiting_response = False
         st.rerun()
 else:
     st.warning("Confirm model settings before asking questions.")
