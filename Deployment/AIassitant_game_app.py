@@ -36,7 +36,7 @@ st.sidebar.header("💡 Model Settings")
 # Model settings sliders and selectors
 model_choice = st.sidebar.selectbox("Choose Model", ["gpt-3.5-turbo", "gpt-4"])
 model_creativity = st.sidebar.slider("Model Creativity (Temperature)", 0.0, 1.0, 0.7, 0.1)
-response_length_words = st.sidebar.slider("Response Length (Words)", 50, 500, 150, 10)
+response_length_words = st.sidebar.slider("Response Length (Words)", 50, 1000, 150, 10)
 response_length_tokens = int(response_length_words * 0.75)  # Approximate conversion: 1 word ≈ 0.75 tokens
 
 # Add "Confirm" button to fix model settings
