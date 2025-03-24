@@ -26,9 +26,17 @@ def process_pdf(uploaded_file):
 def process_text_file(uploaded_file):
     return uploaded_file.getvalue().decode("utf-8")
 
+# Ensure session state variables exist
+if "conversation_history" not in st.session_state:
+    st.session_state.conversation_history = []
+if "uploaded_files" not in st.session_state:
+    st.session_state.uploaded_files = []
+if "model_confirmed" not in st.session_state:
+    st.session_state.model_confirmed = False
+
 # Sidebar - Start new session button at the top
 if st.sidebar.button("🆕 Start New Session"):
-    st.session_state.clear()  # Reset everything
+    st.session_state.clear()  # Reset everything, including uploaded files
     st.rerun()  # Re-run the app to apply reset
 
 # Sidebar for file upload
@@ -49,14 +57,6 @@ if st.sidebar.button("Confirm Model Settings"):
     st.session_state.response_length_tokens = response_length_tokens
     st.session_state.model_confirmed = True
     st.success("Model settings confirmed.")
-
-# Ensure session state variables exist
-if "conversation_history" not in st.session_state:
-    st.session_state.conversation_history = []
-if "uploaded_files" not in st.session_state:
-    st.session_state.uploaded_files = []
-if "model_confirmed" not in st.session_state:
-    st.session_state.model_confirmed = False
 
 # Process uploaded documents if any
 docs = []
@@ -144,13 +144,11 @@ def save_conversation_pdf():
     output_pdf.seek(0)
     return output_pdf
 
-# Sidebar - Save conversation options
-st.sidebar.header("💾 Save Conversation")
+# Sidebar - Download conversation options (Now Directly Downloads)
+st.sidebar.header("💾 Download Conversation")
 
-if st.sidebar.button("Save as CSV"):
-    csv_data = save_conversation_csv()
-    st.sidebar.download_button("Download CSV", csv_data, "conversation.csv", mime="text/csv")
+csv_data = save_conversation_csv()
+st.sidebar.download_button("Download CSV", csv_data, "conversation.csv", mime="text/csv")
 
-if st.sidebar.button("Save as PDF"):
-    pdf_data = save_conversation_pdf()
-    st.sidebar.download_button("Download PDF", pdf_data, "conversation.pdf", mime="application/pdf")
+pdf_data = save_conversation_pdf()
+st.sidebar.download_button("Download PDF", pdf_data, "conversation.pdf", mime="application/pdf")
