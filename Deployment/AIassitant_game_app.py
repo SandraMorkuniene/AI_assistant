@@ -36,7 +36,7 @@ st.sidebar.header("💡 Model Settings")
 # Model settings sliders and selectors
 model_choice = st.sidebar.selectbox("Choose Model", ["gpt-3.5-turbo", "gpt-4"])
 model_creativity = st.sidebar.slider("Model Creativity (Temperature)", 0.0, 1.0, 0.7, 0.1)
-response_length_words = st.sidebar.slider("Response Length (Words)", 50, 1000, 150, 10)
+response_length_words = st.sidebar.slider("Response Length (Words)", 50, 500, 150, 10)
 response_length_tokens = int(response_length_words * 0.75)  # Approximate conversion: 1 word ≈ 0.75 tokens
 
 # Add "Confirm" button to fix model settings
@@ -49,24 +49,32 @@ if "model_creativity" not in st.session_state:
     st.session_state.model_creativity = model_creativity
 if "response_length_tokens" not in st.session_state:
     st.session_state.response_length_tokens = response_length_tokens
+if "is_model_confirmed" not in st.session_state:
+    st.session_state.is_model_confirmed = False  # Initial state is False
 
 # Update the model settings when "Confirm" is pressed
 if confirm_button:
     st.session_state.model_choice = model_choice
     st.session_state.model_creativity = model_creativity
     st.session_state.response_length_tokens = response_length_tokens
-    st.success("Model settings confirmed for this session.")
     st.session_state.is_model_confirmed = True  # Flag to confirm model settings
-else:
-    st.session_state.is_model_confirmed = False  # Flag to prevent interaction before confirmation
+    st.success("Model settings confirmed for this session.")
 
-# Button to start a new session
+# Place "Start New Session" Button in the top left corner
 if st.sidebar.button("🆕 Start New Session"):
+    # Reset session state to clear history, user input, uploaded files, and model confirmation
     st.session_state.conversation_history = []  # Clear conversation history
     st.session_state.user_input = ""  # Clear the text input when starting a new session
     st.session_state.uploaded_files = []  # Clear uploaded files
     st.session_state.is_model_confirmed = False  # Reset model confirmation flag
-    st.rerun()  # Rerun the app to reset everything
+
+    # Reset other session state variables if necessary
+    st.session_state.is_model_confirmed = False
+    st.session_state.uploaded_files = []
+    st.session_state.conversation_history = []
+    st.session_state.user_input = ""
+
+    st.info("Session reset! Please upload documents and confirm model settings again.")
 
 # Initialize the conversation history in the session state
 if "conversation_history" not in st.session_state:
