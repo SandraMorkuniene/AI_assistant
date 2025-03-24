@@ -1,12 +1,12 @@
- import streamlit as st
- from langchain_community.embeddings import OpenAIEmbeddings
- from langchain_community.vectorstores import FAISS
- from langchain_community.chat_models import ChatOpenAI
- from langchain.schema import HumanMessage, SystemMessage, AIMessage
- import PyPDF2
- import io
- import csv
- from io import StringIO
+import streamlit as st
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_community.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage, SystemMessage, AIMessage
+import PyPDF2
+import io
+import csv
+from io import StringIO
 
 # Initialize LLM
  llm = ChatOpenAI(model="gpt-3.5-turbo")
