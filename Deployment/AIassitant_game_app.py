@@ -7,9 +7,6 @@ import PyPDF2
 import io
 import csv
 from io import StringIO
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from textwrap import wrap
 
 # Initialize LLM
 llm = ChatOpenAI(model="gpt-3.5-turbo")
@@ -91,7 +88,8 @@ if st.session_state.model_confirmed:
             messages.append(HumanMessage(content=msg["content"]) if msg["role"] == "user" else AIMessage(content=msg["content"]))
         messages.append(HumanMessage(content=prompt))
         
-        llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens)
+        llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens, stop=[".", "!"])
+        
         st.session_state.conversation_history.append({"role": "assistant", "content": llm_response.content})
         st.chat_message("assistant").markdown(llm_response.content)
 else:
@@ -106,28 +104,6 @@ def save_conversation_csv():
         writer.writerow([msg["role"], msg["content"]])
     return output.getvalue()
 
-# Function to save conversation as PDF with text wrapping
-def save_conversation_pdf():
-    output_pdf = io.BytesIO()
-    c = canvas.Canvas(output_pdf, pagesize=letter)
-    y_position = 750
-    c.setFont("Helvetica", 10)
-    
-    for msg in st.session_state.conversation_history:
-        wrapped_text = wrap(f"{msg['role']}: {msg['content']}", 80)
-        for line in wrapped_text:
-            c.drawString(50, y_position, line)
-            y_position -= 15
-            if y_position < 50:
-                c.showPage()
-                c.setFont("Helvetica", 10)
-                y_position = 750
-    
-    c.save()
-    output_pdf.seek(0)
-    return output_pdf
-
 # Sidebar - Download conversation
 st.sidebar.header("💾 Download Conversation")
 st.sidebar.download_button("Download CSV", save_conversation_csv(), "conversation.csv", "text/csv")
-st.sidebar.download_button("Download PDF", save_conversation_pdf(), "conversation.pdf", "application/pdf")
