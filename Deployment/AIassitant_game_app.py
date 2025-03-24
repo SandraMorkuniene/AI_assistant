@@ -31,6 +31,8 @@ if "model_confirmed" not in st.session_state:
     st.session_state.model_confirmed = False
 if "user_input" not in st.session_state:
     st.session_state.user_input = ""
+if "faiss_index" not in st.session_state:
+    st.session_state.faiss_index = None
 
 # Sidebar - Start new session button at the top
 if st.sidebar.button("🆕 Start New Session"):
@@ -38,6 +40,7 @@ if st.sidebar.button("🆕 Start New Session"):
     st.session_state.uploaded_files = None
     st.session_state.model_confirmed = False
     st.session_state.user_input = ""
+    st.session_state.faiss_index = None
     st.rerun()
 
 # Sidebar for file upload
@@ -49,7 +52,7 @@ if uploaded_files:
     docs = [process_pdf(f) if f.type == "application/pdf" else process_text_file(f) for f in uploaded_files]
     embeddings = OpenAIEmbeddings()
     faiss_index = FAISS.from_texts(docs, embeddings)
-    st.session_state.uploaded_files = faiss_index
+    st.session_state.faiss_index = faiss_index
     st.success(f"Successfully indexed {len(docs)} documents.")
 
 # Sidebar - Model settings
@@ -73,14 +76,13 @@ for message in st.session_state.conversation_history:
 
 # User input
 if st.session_state.model_confirmed:
-    query = st.text_input("Ask a question:", value=st.session_state.user_input)
+    query = st.text_input("Ask a question:", key="user_input")
     
     if query:
-        st.session_state.user_input = ""  # Clear input field after submission
         st.session_state.conversation_history.append({"role": "user", "content": query})
         
-        if st.session_state.uploaded_files:
-            context = st.session_state.uploaded_files.similarity_search(query, k=2)
+        if st.session_state.faiss_index:
+            context = st.session_state.faiss_index.similarity_search(query, k=2)
             context_text = "\n".join([doc.page_content for doc in context])
             prompt = f"Use this context:\n{context_text}\nQuestion: {query}\nAnswer:"
         else:
@@ -88,18 +90,24 @@ if st.session_state.model_confirmed:
         
         messages = [SystemMessage(content="You are a helpful assistant.")]
         for msg in st.session_state.conversation_history:
-            messages.append(HumanMessage(content=msg["content"]) if msg["role"] == "user" else AIMessage(content=msg["content"]))
+            if msg["role"] == "user":
+                messages.append(HumanMessage(content=msg["content"]))
+            elif msg["role"] == "assistant":
+                messages.append(AIMessage(content=msg["content"]))
         messages.append(HumanMessage(content=prompt))
         
         llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens)
         
-        # Ensure response is completed properly
+        # Ensure response completes naturally
         response_text = llm_response.content.strip()
-        if not response_text.endswith(('.', '!', '?')):
-            response_text += "..."
+        while not response_text.endswith(('.', '!', '?')):
+            extra_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=20)  # Fetch a few more tokens
+            response_text += " " + extra_response.content.strip()
+            if len(response_text.split()) >= response_length_words:
+                break
         
         st.session_state.conversation_history.append({"role": "assistant", "content": response_text})
-        st.chat_message("assistant").markdown(response_text)
+        st.rerun()
 else:
     st.warning("Confirm model settings before asking questions.")
 
