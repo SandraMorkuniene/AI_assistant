@@ -88,10 +88,15 @@ if st.session_state.model_confirmed:
             messages.append(HumanMessage(content=msg["content"]) if msg["role"] == "user" else AIMessage(content=msg["content"]))
         messages.append(HumanMessage(content=prompt))
         
-        llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens, stop=[".", "!"])
+        llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens)
         
-        st.session_state.conversation_history.append({"role": "assistant", "content": llm_response.content})
-        st.chat_message("assistant").markdown(llm_response.content)
+        # Ensure response is completed properly
+        response_text = llm_response.content
+        if not response_text.endswith(('.', '!', '?')):
+            response_text += "..."
+        
+        st.session_state.conversation_history.append({"role": "assistant", "content": response_text})
+        st.chat_message("assistant").markdown(response_text)
 else:
     st.warning("Confirm model settings before asking questions.")
 
