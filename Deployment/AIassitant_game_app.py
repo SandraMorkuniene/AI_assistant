@@ -1,7 +1,7 @@
 import streamlit as st
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings  # Update the import
 from langchain_community.vectorstores import FAISS
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI  # Update the import
 from langchain.schema import BaseMessage, HumanMessage, SystemMessage
 import PyPDF2
 import io
@@ -36,7 +36,7 @@ st.sidebar.header("💡 Model Settings")
 # Model settings sliders and selectors
 model_choice = st.sidebar.selectbox("Choose Model", ["gpt-3.5-turbo", "gpt-4"])
 model_creativity = st.sidebar.slider("Model Creativity (Temperature)", 0.0, 1.0, 0.7, 0.1)
-response_length_words = st.sidebar.slider("Response Length (Words)", 50, 1000, 150, 10)
+response_length_words = st.sidebar.slider("Response Length (Words)", 50, 500, 150, 10)
 response_length_tokens = int(response_length_words * 0.75)  # Approximate conversion: 1 word ≈ 0.75 tokens
 
 # Add "Confirm" button to fix model settings
@@ -117,18 +117,18 @@ if query:
 
     # Prepare messages for LLM
     messages = [
-        SystemMessage(content="You are a helpful assistant."),
+        SystemMessage(content="You are a helpful assistant.", type="system"),  # Specify type explicitly
     ]
     
     # Add conversation history to prompt
     for message in st.session_state.conversation_history:
         if message["role"] == "user":
-            messages.append(HumanMessage(content=message["content"]))
+            messages.append(HumanMessage(content=message["content"], type="user"))  # Specify type explicitly
         elif message["role"] == "assistant":
-            messages.append(BaseMessage(content=message["content"]))
+            messages.append(BaseMessage(content=message["content"], type="assistant"))  # Specify type explicitly
 
     # Add current user query
-    messages.append(HumanMessage(content=prompt))
+    messages.append(HumanMessage(content=prompt, type="user"))  # Specify type explicitly
 
     # Generate a response using the LLM with model creativity (temperature) and token count
     llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens)
@@ -177,5 +177,3 @@ if st.sidebar.button("Save as CSV"):
 if st.sidebar.button("Save as PDF"):
     pdf_data = save_conversation_pdf()
     st.sidebar.download_button("Download PDF", pdf_data, "conversation.pdf", mime="application/pdf")
-
-
