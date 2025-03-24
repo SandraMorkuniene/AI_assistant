@@ -34,7 +34,10 @@ if "user_input" not in st.session_state:
 
 # Sidebar - Start new session button at the top
 if st.sidebar.button("🆕 Start New Session"):
-    st.session_state.clear()
+    st.session_state.conversation_history = []
+    st.session_state.uploaded_files = None
+    st.session_state.model_confirmed = False
+    st.session_state.user_input = ""
     st.rerun()
 
 # Sidebar for file upload
@@ -91,7 +94,7 @@ if st.session_state.model_confirmed:
         llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens)
         
         # Ensure response is completed properly
-        response_text = llm_response.content
+        response_text = llm_response.content.strip()
         if not response_text.endswith(('.', '!', '?')):
             response_text += "..."
         
