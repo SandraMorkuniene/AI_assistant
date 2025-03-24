@@ -56,20 +56,25 @@ if confirm_button:
     st.session_state.model_creativity = model_creativity
     st.session_state.response_length_tokens = response_length_tokens
     st.success("Model settings confirmed for this session.")
-
-# Initialize LLM with the confirmed settings
-llm = ChatOpenAI(model=st.session_state.model_choice)
+    st.session_state.is_model_confirmed = True  # Flag to confirm model settings
+else:
+    st.session_state.is_model_confirmed = False  # Flag to prevent interaction before confirmation
 
 # Button to start a new session
 if st.sidebar.button("🆕 Start New Session"):
     st.session_state.conversation_history = []  # Clear conversation history
     st.session_state.user_input = ""  # Clear the text input when starting a new session
+    st.session_state.uploaded_files = []  # Clear uploaded files
+    st.session_state.is_model_confirmed = False  # Reset model confirmation flag
+    st.experimental_rerun()  # Rerun the app to reset everything
 
 # Initialize the conversation history in the session state
 if "conversation_history" not in st.session_state:
     st.session_state.conversation_history = []
 if "user_input" not in st.session_state:
     st.session_state.user_input = ""  # Initialize user input state
+if "uploaded_files" not in st.session_state:
+    st.session_state.uploaded_files = []  # To store uploaded files
 
 # Process uploaded documents if any
 docs = []  # This will hold your document text
@@ -82,11 +87,12 @@ if uploaded_files:
             text = process_text_file(uploaded_file)
             docs.append(text)
     
-    # Vectorize and index the documents
+    # Vectorize and index the documents if they are uploaded
     if docs:
         embeddings = OpenAIEmbeddings()
         faiss_index = FAISS.from_texts(docs, embeddings)
         st.success(f"Successfully loaded and indexed {len(docs)} documents.")
+        st.session_state.uploaded_files = docs  # Save docs to session state
     else:
         st.error("No documents found in the uploaded files.")
 else:
@@ -97,47 +103,50 @@ if st.session_state.conversation_history:
     for i, message in enumerate(st.session_state.conversation_history):
         st.chat_message(message["role"]).markdown(message["content"])
 
-# Get the user's query
-query = st.text_input("Ask a question:", value=st.session_state.user_input)
+# Get the user's query (if model settings are confirmed)
+if st.session_state.is_model_confirmed:
+    query = st.text_input("Ask a question:", value=st.session_state.user_input)
 
-if query:
-    # Update the user input state
-    st.session_state.user_input = query
-    
-    # Add the user's query to the conversation history
-    st.session_state.conversation_history.append({"role": "user", "content": query})
-    
-    # If documents are provided, use FAISS for retrieval
-    if uploaded_files:
-        context = faiss_index.similarity_search(query, k=2)  # Fetch top 2 relevant docs
-        context_text = "\n".join([doc.page_content for doc in context])  # Extract page_content from each document
-        prompt = f"Use the following context to answer the question:\n{context_text}\nQuestion: {query}\nAnswer:"
-    else:
-        prompt = f"Answer the following question in a general way: {query}"
+    if query:
+        # Update the user input state
+        st.session_state.user_input = query
+        
+        # Add the user's query to the conversation history
+        st.session_state.conversation_history.append({"role": "user", "content": query})
+        
+        # If documents are provided, use FAISS for retrieval
+        if uploaded_files:
+            context = faiss_index.similarity_search(query, k=2)  # Fetch top 2 relevant docs
+            context_text = "\n".join([doc.page_content for doc in context])  # Extract page_content from each document
+            prompt = f"Use the following context to answer the question:\n{context_text}\nQuestion: {query}\nAnswer:"
+        else:
+            prompt = f"Answer the following question in a general way: {query}"
 
-    # Prepare messages for LLM
-    messages = [
-        SystemMessage(content="You are a helpful assistant.", type="system"),  # Specify type explicitly
-    ]
-    
-    # Add conversation history to prompt
-    for message in st.session_state.conversation_history:
-        if message["role"] == "user":
-            messages.append(HumanMessage(content=message["content"], type="user"))  # Specify type explicitly
-        elif message["role"] == "assistant":
-            messages.append(BaseMessage(content=message["content"], type="assistant"))  # Specify type explicitly
+        # Prepare messages for LLM
+        messages = [
+            SystemMessage(content="You are a helpful assistant.", type="system"),  # Specify type explicitly
+        ]
+        
+        # Add conversation history to prompt
+        for message in st.session_state.conversation_history:
+            if message["role"] == "user":
+                messages.append(HumanMessage(content=message["content"], type="user"))  # Specify type explicitly
+            elif message["role"] == "assistant":
+                messages.append(BaseMessage(content=message["content"], type="assistant"))  # Specify type explicitly
 
-    # Add current user query
-    messages.append(HumanMessage(content=prompt, type="user"))  # Specify type explicitly
+        # Add current user query
+        messages.append(HumanMessage(content=prompt, type="user"))  # Specify type explicitly
 
-    # Generate a response using the LLM with model creativity (temperature) and token count
-    llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens)
+        # Generate a response using the LLM with model creativity (temperature) and token count
+        llm_response = llm(messages, temperature=st.session_state.model_creativity, max_tokens=st.session_state.response_length_tokens)
 
-    # Add the model's response to the conversation history
-    st.session_state.conversation_history.append({"role": "assistant", "content": llm_response.content})
+        # Add the model's response to the conversation history
+        st.session_state.conversation_history.append({"role": "assistant", "content": llm_response.content})
 
-    # Display the assistant's response in the chat
-    st.chat_message("assistant").markdown(llm_response.content)
+        # Display the assistant's response in the chat
+        st.chat_message("assistant").markdown(llm_response.content)
+else:
+    st.warning("Please confirm the model settings before asking questions.")
 
 # Save the conversation to a CSV file
 def save_conversation_csv():
