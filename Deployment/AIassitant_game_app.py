@@ -24,6 +24,8 @@ if "conversation_history" not in st.session_state:
     st.session_state.conversation_history = []
 if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = None
+if "uploaded_file_count" not in st.session_state:
+    st.session_state.uploaded_file_count = 0
 if "model_confirmed" not in st.session_state:
     st.session_state.model_confirmed = False
 if "user_input" not in st.session_state:
@@ -36,12 +38,13 @@ if st.sidebar.button("🆕 Start New Session"):
 st.sidebar.header("📄 Upload Documents")
 uploaded_files = st.sidebar.file_uploader("Upload PDFs or TXT files", type=["pdf", "txt"], accept_multiple_files=True)
 
-if uploaded_files and (st.session_state.uploaded_files is None or len(uploaded_files) != len(st.session_state.uploaded_files)):
+if uploaded_files and (st.session_state.uploaded_files is None or len(uploaded_files) != st.session_state.uploaded_file_count):
     with st.spinner("Processing documents..."):
         docs = [process_pdf(f) if f.type == "application/pdf" else process_text_file(f) for f in uploaded_files]
         embeddings = OpenAIEmbeddings()
         faiss_index = FAISS.from_texts(docs, embeddings)
         st.session_state.uploaded_files = faiss_index
+        st.session_state.uploaded_file_count = len(uploaded_files)  # Store file count separately
     st.success(f"Successfully indexed {len(docs)} documents.")
 
 st.sidebar.header("💡 Model Settings")
